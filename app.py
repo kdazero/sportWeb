@@ -27,7 +27,7 @@ app.secret_key = os.urandom(24)
 # 取得 app.py 所在的目錄，確保路徑在 Render 上是正確的
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # The user's file is a CSV, even if it has .xlsx in the name.
-USERS_CSV_PATH = os.path.join(BASE_DIR, 'users.xlsx - 工作表1.csv')
+USERS_CSV_PATH = os.path.join(BASE_DIR, 'users.xlsx')
 
 # --- 字型註冊 ---
 # 根據您的要求，已移除對 'NotoSansTC-Regular.ttf' 字型檔案的依賴與檢查。
