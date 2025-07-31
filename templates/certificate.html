@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <title>活動完賽證明</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            margin: 0;
+            padding: 40px;
+            box-sizing: border-box;
+            background-color: #fdfdfd;
+            border: 10px solid #0073b1;
+            /* Garmin blue */
+            width: 210mm;
+            /* A4 width */
+            height: 297mm;
+            /* A4 height */
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            color: #0073b1;
+            margin: 0;
+        }
+
+        .header h2 {
+            font-size: 24px;
+            color: #333;
+            margin-top: 10px;
+        }
+
+        .content {
+            text-align: center;
+        }
+
+        .content p {
+            font-size: 20px;
+            line-height: 1.8;
+        }
+
+        .content .name {
+            font-weight: 700;
+            font-size: 28px;
+            color: #d9534f;
+        }
+
+        .data-table {
+            width: 80%;
+            margin: 40px auto;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: 700;
+        }
+
+        .map-container {
+            margin-top: 40px;
+        }
+
+        .map-container img {
+            max-width: 100%;
+            border: 2px solid #ddd;
+        }
+
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 14px;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>活動完賽證明</h1>
+        <h2>Certificate of Completion</h2>
+    </div>
+
+    <div class="content">
+        <p>茲證明參賽者</p>
+        <p class="name">{{ user_name }}</p>
+        <p>(編號: {{ user_number }})</p>
+        <p>已成功完成本次挑戰，成績如下：</p>
+    </div>
+
+    <table class="data-table">
+        <tr>
+            <th>距離</th>
+            <td>{{ distance }}</td>
+            <th>時間</th>
+            <td>{{ time }}</td>
+        </tr>
+        <tr>
+            <th>平均配速</th>
+            <td>{{ avg_pace }}</td>
+            <th>總爬升</th>
+            <td>{{ elevation_gain }}</td>
+        </tr>
+    </table>
+
+    <div class="map-container">
+        <p style="text-align:center; font-size:20px;">活動路線圖</p>
+        <img src="{{ map_image_url }}" alt="路線圖">
+    </div>
+
+    <div class="footer">
+        <p>資料來源: Garmin Connect</p>
+        <p>證書產生時間: {{ generation_date }}</p>
+    </div>
+</body>
+
+</html>

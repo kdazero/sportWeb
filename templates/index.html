@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Garmin 證書產生器</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <style>
+        body {
+            padding-top: 70px;
+        }
+
+        .main-content {
+            max-width: 680px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-default navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">證書產生器</a>
+            </div>
+            <div class="collapse navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="#">歡迎, {{ user_name }}</a></li>
+                    <li><a href="/logout">登出</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <div class="jumbotron">
+            <h2>產生您的活動證書</h2>
+            <p>請在下方貼上您的 Garmin Connect 活動網址，系統將會為您產生 PDF 證書。</p>
+            <form action="/generate" method="post">
+                <div class="form-group">
+                    <label for="garmin_url">Garmin 活動網址</label>
+                    <input type="url" class="form-control" id="garmin_url" name="garmin_url"
+                        placeholder="https://connect.garmin.com/modern/activity/..." required>
+                </div>
+                <button type="submit" class="btn btn-success btn-lg">產生證書 PDF</button>
+            </form>
+            <div class="alert alert-warning" style="margin-top: 20px;">
+                <strong>開發者提示：</strong> 由於 Garmin 網站保護機制，直接爬蟲極有可能失敗。若失敗，系統將會使用一組 <b>模擬資料</b> 來產生證書，以供測試 PDF 生成流程。
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
