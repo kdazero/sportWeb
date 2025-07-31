@@ -3,16 +3,27 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Garmin 證書產生器</title>
+    <title>運動證書產生器</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <style>
         body {
             padding-top: 70px;
+            font-family: 'Noto Sans TC', sans-serif;
         }
 
         .main-content {
             max-width: 680px;
             margin: 0 auto;
+        }
+
+        .jumbotron {
+            background-color: #f9f9f9;
+            border: 1px solid #e3e3e3;
+        }
+
+        .btn-success {
+            background-color: #5cb85c;
+            border-color: #4cae4c;
         }
     </style>
 </head>
@@ -21,7 +32,7 @@
     <nav class="navbar navbar-default navbar-fixed-top">
         <div class="container">
             <div class="navbar-header">
-                <a class="navbar-brand" href="#">證書產生器</a>
+                <a class="navbar-brand" href="#">運動證書產生器</a>
             </div>
             <div class="collapse navbar-collapse">
                 <ul class="nav navbar-nav navbar-right">
@@ -35,17 +46,37 @@
     <div class="container main-content">
         <div class="jumbotron">
             <h2>產生您的活動證書</h2>
-            <p>請在下方貼上您的 Garmin Connect 活動網址，系統將會為您產生 PDF 證書。</p>
+            <p>請選擇您的活動平台，並貼上活動網址，系統將會為您產生 PDF 證書。</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
             <form action="/generate" method="post">
                 <div class="form-group">
-                    <label for="garmin_url">Garmin 活動網址</label>
-                    <input type="url" class="form-control" id="garmin_url" name="garmin_url"
-                        placeholder="https://connect.garmin.com/modern/activity/..." required>
+                    <label for="source_type">活動平台</label>
+                    <select class="form-control" id="source_type" name="source_type">
+                        <option value="strava">Strava</option>
+                        <option value="garmin">Garmin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="activity_url">活動網址</label>
+                    <input type="url" class="form-control" id="activity_url" name="activity_url"
+                        placeholder="https://www.strava.com/activities/..." required>
                 </div>
                 <button type="submit" class="btn btn-success btn-lg">產生證書 PDF</button>
             </form>
             <div class="alert alert-warning" style="margin-top: 20px;">
-                <strong>開發者提示：</strong> 由於 Garmin 網站保護機制，直接爬蟲極有可能失敗。若失敗，系統將會使用一組 <b>模擬資料</b> 來產生證書，以供測試 PDF 生成流程。
+                <strong>開發者提示：</strong>
+                <ul>
+                    <li><b>Garmin:</b> 由於其網站保護機制，您需要手動更新程式碼中的 `authorization` token 才能成功爬取。</li>
+                    <li>若爬取失敗，系統將無法產生證書。請確保網址正確且公開，或 Garmin Token 有效。</li>
+                </ul>
             </div>
         </div>
     </div>
