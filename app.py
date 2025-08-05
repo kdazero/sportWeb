@@ -45,7 +45,14 @@ try:
         raise ValueError("環境變數 'GOOGLE_CREDENTIALS_JSON' 未設定。")
     
     creds_info = json.loads(creds_json_str)
-    scopes = ['https://www.googleapis.com/auth/spreadsheets']
+    
+    # --- 權限修正 ---
+    # 新增 'drive.file' 權限，讓 gspread 可以找到並開啟試算表檔案
+    scopes = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive.file'
+    ]
+    
     creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
     gc = gspread.authorize(creds)
     
