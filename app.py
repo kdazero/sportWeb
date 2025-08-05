@@ -40,32 +40,46 @@ else:
 
 # --- Google Sheets 設定 ---
 try:
+    print("診斷：開始設定 Google Sheets 連線...")
+    
     creds_json_str = os.environ.get('GOOGLE_CREDENTIALS_JSON')
     if not creds_json_str:
         raise ValueError("環境變數 'GOOGLE_CREDENTIALS_JSON' 未設定。")
     
+    print("診斷：成功讀取 GOOGLE_CREDENTIALS_JSON。")
     creds_info = json.loads(creds_json_str)
+    print("診斷：成功解析 JSON 憑證。")
     
-    # --- 權限修正 ---
-    # 新增 'drive.file' 權限，讓 gspread 可以找到並開啟試算表檔案
     scopes = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive.file'
     ]
     
     creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
+    print("診斷：成功建立 Credentials 物件。")
+    
     gc = gspread.authorize(creds)
+    print("診斷：成功通過 gspread 授權。")
     
     SHEET_NAME = os.environ.get('GOOGLE_SHEET_NAME')
     if not SHEET_NAME:
         raise ValueError("環境變數 'GOOGLE_SHEET_NAME' 未設定。")
-        
+    
+    print(f"診斷：準備開啟試算表，名稱為 '{SHEET_NAME}'...")
     spreadsheet = gc.open(SHEET_NAME)
+    print("診斷：成功開啟試算表檔案。")
+    
     worksheet = spreadsheet.worksheet('users') 
+    print("診斷：成功開啟 'users' 工作表。")
+    
     print("成功連接至 Google Sheets。")
     GSPREAD_AVAILABLE = True
+
 except Exception as e:
-    print(f"錯誤：無法連接至 Google Sheets。請檢查您的環境變數和憑證設定。 {e}", file=sys.stderr)
+    # --- 增加更詳細的錯誤日誌 ---
+    print("錯誤：在連接 Google Sheets 的過程中發生預期外的錯誤。", file=sys.stderr)
+    print(f"錯誤類型: {type(e)}", file=sys.stderr)
+    print(f"錯誤詳細資訊: {repr(e)}", file=sys.stderr)
     GSPREAD_AVAILABLE = False
     
 # --- 全域變數 ---
