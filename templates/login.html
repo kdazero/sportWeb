@@ -59,8 +59,8 @@
 <body>
 
     <div class="container">
-        <!-- 表單的 action 屬性已移除後端連結 -->
-        <form class="form-signin" method="POST" action="#">
+        <!-- 表單的 action 屬性已重新連結至後端 login 路由 -->
+        <form class="form-signin" method="POST" action="{{ url_for('login') }}">
             <h2 class="form-signin-heading">證書產生器登入</h2>
             <label for="id_card" class="sr-only">身分證號</label>
             <input type="text" id="id_card" name="id_card" class="form-control" placeholder="身分證號" required autofocus>
@@ -68,7 +68,16 @@
             <input type="password" id="phone" name="phone" class="form-control" placeholder="手機號碼" required>
             <button class="btn btn-lg btn-primary btn-block" type="submit">登入</button>
 
-            <!-- 後端提示訊息區塊已移除 -->
+            <!-- 後端提示訊息區塊已恢復 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" role="alert">
+                {{ message }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
 
         </form>
     </div>
