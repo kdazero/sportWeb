@@ -61,12 +61,13 @@ try:
     gc = gspread.authorize(creds)
     print("診斷：成功通過 gspread 授權。")
     
-    SHEET_NAME = os.environ.get('GOOGLE_SHEET_NAME')
-    if not SHEET_NAME:
-        raise ValueError("環境變數 'GOOGLE_SHEET_NAME' 未設定。")
+    # --- 改用 GOOGLE_SHEET_KEY 來開啟 ---
+    SHEET_KEY = os.environ.get('GOOGLE_SHEET_KEY')
+    if not SHEET_KEY:
+        raise ValueError("環境變數 'GOOGLE_SHEET_KEY' 未設定。")
     
-    print(f"診斷：準備開啟試算表，名稱為 '{SHEET_NAME}'...")
-    spreadsheet = gc.open(SHEET_NAME)
+    print(f"診斷：準備透過 KEY 開啟試算表...")
+    spreadsheet = gc.open_by_key(SHEET_KEY)
     print("診斷：成功開啟試算表檔案。")
     
     worksheet = spreadsheet.worksheet('users') 
