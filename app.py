@@ -40,8 +40,6 @@ else:
 
 # --- Google Sheets 設定 ---
 try:
-    # Render 會將 JSON 內容作為一個字串存入環境變數
-    # 我們需要將其解析回字典
     creds_json_str = os.environ.get('GOOGLE_CREDENTIALS_JSON')
     if not creds_json_str:
         raise ValueError("環境變數 'GOOGLE_CREDENTIALS_JSON' 未設定。")
@@ -51,13 +49,11 @@ try:
     creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
     gc = gspread.authorize(creds)
     
-    # 從環境變數讀取 Google Sheet 的名稱
     SHEET_NAME = os.environ.get('GOOGLE_SHEET_NAME')
     if not SHEET_NAME:
         raise ValueError("環境變數 'GOOGLE_SHEET_NAME' 未設定。")
         
     spreadsheet = gc.open(SHEET_NAME)
-    # 假設您的工作表名稱是 'users'
     worksheet = spreadsheet.worksheet('users') 
     print("成功連接至 Google Sheets。")
     GSPREAD_AVAILABLE = True
@@ -66,7 +62,7 @@ except Exception as e:
     GSPREAD_AVAILABLE = False
     
 # --- 全域變數 ---
-excel_lock = threading.Lock()
+gsheet_lock = threading.Lock()
 
 # ==============================================================================
 # 輔助函式
@@ -76,7 +72,7 @@ def get_user_data():
     if not GSPREAD_AVAILABLE:
         return None
     try:
-        with excel_lock:
+        with gsheet_lock:
             records = worksheet.get_all_records()
         return pd.DataFrame(records)
     except Exception as e:
@@ -91,41 +87,41 @@ def seconds_to_hms(seconds):
     minutes, seconds = divmod(remainder, 60)
     return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
 
-def update_user_log_timestamp(username):
+def update_user_log_timestamp(user_id_card):
     """在 Google Sheet 中更新使用者的證書產生時間戳記。"""
     if not GSPREAD_AVAILABLE:
         return
-    with excel_lock:
+    with gsheet_lock:
         try:
-            # 找到對應的使用者所在的列
-            cell = worksheet.find(username, in_column=1) # 假設 username 在 A 欄
+            # 找到對應的使用者所在的列 (根據 id_card)
+            cell = worksheet.find(user_id_card, in_column=2) # 假設 id_card 在 B 欄
             if not cell:
-                print(f"紀錄失敗：在 Google Sheet 中找不到使用者 {username}。", file=sys.stderr)
+                print(f"紀錄失敗：在 Google Sheet 中找不到使用者 {user_id_card}。", file=sys.stderr)
                 return
 
-            # 找到 'last_certificate_timestamp' 所在的欄
+            # 找到 'last_print' 所在的欄
             headers = worksheet.row_values(1)
             try:
-                col_index = headers.index('last_certificate_timestamp') + 1
+                col_index = headers.index('last_print') + 1
             except ValueError:
                 # 如果欄位不存在，則在最後一欄新增
                 col_index = len(headers) + 1
-                worksheet.update_cell(1, col_index, 'last_certificate_timestamp')
+                worksheet.update_cell(1, col_index, 'last_print')
 
             # 更新該儲存格
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             worksheet.update_cell(cell.row, col_index, timestamp)
-            print(f"紀錄成功：使用者 {username} 的證書產生時間已更新為 {timestamp}。")
+            print(f"紀錄成功：使用者 {user_id_card} 的證書產生時間已更新為 {timestamp}。")
 
         except Exception as e:
             print(f"更新 Google Sheet 時發生錯誤：{e}", file=sys.stderr)
 
 # ==============================================================================
-# 路由 (Routes) - (此部分與前一版本幾乎相同，僅錯誤處理訊息稍作調整)
+# 路由 (Routes)
 # ==============================================================================
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    if 'username' not in session:
+    if 'user_id_card' not in session:
         return redirect(url_for('login'))
     activities_data = session.get('activities_data', [])
     return render_template('index.html', activities=activities_data)
@@ -137,21 +133,27 @@ def login():
         return render_template('login.html')
 
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        id_card = request.form['id_card']
+        phone = request.form['phone']
         
         users_df = get_user_data()
         if users_df is None:
             flash('伺服器錯誤，無法讀取使用者資料。', 'danger')
             return render_template('login.html')
 
-        user = users_df[users_df['username'] == username]
-        if not user.empty and str(user.iloc[0]['password']) == str(password):
-            session['username'] = username
-            session['garmin_url'] = user.iloc[0]['garmin_url']
+        # 確保 phone 欄位是字串格式以進行比較
+        users_df['phone'] = users_df['phone'].astype(str)
+        user = users_df[users_df['id_card'] == id_card]
+
+        if not user.empty and user.iloc[0]['phone'] == phone:
+            # 登入成功，將所需資訊存入 session
+            session['user_id_card'] = id_card
+            session['user_name'] = user.iloc[0]['name']
+            session['user_number'] = user.iloc[0]['user_number']
+            session['garmin_url'] = user.iloc[0]['garmin_url'] # 假設您的 sheet 有 garmin_url 欄位
             return redirect(url_for('fetch_activities'))
         else:
-            flash('帳號或密碼錯誤。', 'danger')
+            flash('身分證號或手機號碼錯誤。', 'danger')
 
     return render_template('login.html')
 
@@ -162,6 +164,10 @@ def fetch_activities():
         return redirect(url_for('login'))
 
     garmin_url = session['garmin_url']
+    if not garmin_url or not isinstance(garmin_url, str) or not garmin_url.startswith('http'):
+        flash('此帳號未設定有效的 Garmin Connect 網址。', 'danger')
+        return redirect(url_for('index'))
+        
     try:
         response = requests.get(garmin_url)
         response.raise_for_status()
@@ -169,7 +175,7 @@ def fetch_activities():
         
         script_tag = soup.find('script', string=re.compile('VIEWER_USER_PREFERENCES'))
         if not script_tag:
-            flash('在頁面中找不到活動資料。請確認您的個人資料頁面是公開的。', 'danger')
+            flash('在頁面中找不到活動資料。請確認您的 Garmin Connect 個人資料頁面是公開的。', 'danger')
             return redirect(url_for('index'))
 
         json_str = script_tag.string
@@ -184,9 +190,9 @@ def fetch_activities():
         flash('成功抓取活動資料！', 'success')
 
     except requests.exceptions.RequestException as e:
-        flash(f'抓取資料失敗：{e}', 'danger')
+        flash(f'抓取 Garmin 資料失敗：{e}', 'danger')
     except json.JSONDecodeError:
-        flash('解析 JSON 資料失敗。', 'danger')
+        flash('解析 Garmin JSON 資料失敗。', 'danger')
     except Exception as e:
         flash(f'發生未知錯誤：{e}', 'danger')
         
@@ -194,7 +200,7 @@ def fetch_activities():
 
 @app.route('/generate_pdf/<activity_id>')
 def generate_pdf(activity_id):
-    if 'username' not in session:
+    if 'user_id_card' not in session:
         return redirect(url_for('login'))
 
     activities = session.get('activities_data', [])
@@ -203,23 +209,26 @@ def generate_pdf(activity_id):
     if not activity:
         return "找不到活動", 404
 
+    # --- 更新使用者紀錄 ---
+    update_user_log_timestamp(session.get('user_id_card'))
+
+    # --- 提取資料 ---
     activity_name = activity.get('activityName', 'N/A')
     distance_meters = activity.get('distance', 0)
     distance_km = round(distance_meters / 1000, 2) if distance_meters else 0
     moving_time_seconds = activity.get('movingTime', 0)
     moving_time_hms = seconds_to_hms(moving_time_seconds)
     
-    update_user_log_timestamp(session.get('username'))
-
+    # --- 產生 PDF ---
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
 
+    # --- 證書內容 ---
     if FONT_AVAILABLE:
         p.setFont('NotoSansTC', 36)
     else:
         p.setFont('Helvetica', 36)
-
     p.drawCentredString(width / 2.0, height - 100, "完賽證明")
 
     if FONT_AVAILABLE:
@@ -227,7 +236,10 @@ def generate_pdf(activity_id):
     else:
         p.setFont('Helvetica', 18)
 
-    p.drawCentredString(width / 2.0, height - 200, f"恭喜 {session.get('username', '參賽者')}")
+    user_name = session.get('user_name', '')
+    user_number = session.get('user_number', '')
+
+    p.drawCentredString(width / 2.0, height - 200, f"恭喜 {user_name} (編號: {user_number})")
     p.drawCentredString(width / 2.0, height - 250, "成功挑戰")
     p.drawCentredString(width / 2.0, height - 300, f"{activity_name}")
     p.drawCentredString(width / 2.0, height - 350, f"距離：{distance_km} 公里")
@@ -237,8 +249,9 @@ def generate_pdf(activity_id):
     p.save()
     buffer.seek(0)
     
+    # --- 設定檔名 ---
     safe_activity_name = quote(activity_name.replace(" ", "_"))
-    filename = f"certificate_{session.get('username', '')}_{safe_activity_name}.pdf"
+    filename = f"certificate_{user_name}_{safe_activity_name}.pdf"
 
     return Response(
         buffer,
@@ -256,7 +269,4 @@ def logout():
 # 應用程式啟動
 # ==============================================================================
 if __name__ == '__main__':
-    # 在本機測試時，您可能需要手動設定環境變數
-    # 例如：os.environ['SECRET_KEY'] = 'your_local_secret_key'
-    # ...等等
     app.run(debug=True)

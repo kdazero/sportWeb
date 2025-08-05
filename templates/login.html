@@ -3,54 +3,79 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>登入 - Garmin 證書產生器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 - 證書產生器</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <style>
         body {
-            background-color: #f8f8f8;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+            padding-top: 40px;
+            padding-bottom: 40px;
+            background-color: #eee;
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
         }
 
-        .login-panel {
-            max-width: 400px;
-            width: 100%;
+        .form-signin {
+            max-width: 330px;
+            padding: 15px;
+            margin: 0 auto;
         }
 
-        .panel-heading {
-            text-align: center;
+        .form-signin .form-signin-heading {
+            margin-bottom: 10px;
+        }
+
+        .form-signin .form-control {
+            position: relative;
+            height: auto;
+            -webkit-box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        .form-signin .form-control:focus {
+            z-index: 2;
+        }
+
+        .form-signin input[type="text"] {
+            margin-bottom: -1px;
+            border-bottom-right-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        .form-signin input[type="password"] {
+            margin-bottom: 10px;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        .alert {
+            margin-top: 15px;
         }
     </style>
 </head>
 
 <body>
-    <div class="login-panel">
-        <div class="panel panel-info">
-            <div class="panel-heading">
-                <h3 class="panel-title">會員登入</h3>
-            </div>
-            <div class="panel-body">
-                {% if error %}
-                <div class="alert alert-danger">{{ error }}</div>
-                {% endif %}
-                <form action="/login" method="post">
-                    <div class="form-group">
-                        <label for="id_card">身分證號碼</label>
-                        <input type="text" class="form-control" id="id_card" name="id_card" placeholder="請輸入身分證號碼"
-                            required>
-                    </div>
-                    <div class="form-group">
-                        <label for="phone">電話號碼</label>
-                        <input type="password" class="form-control" id="phone" name="phone" placeholder="請輸入電話號碼"
-                            required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">登入</button>
-                </form>
-            </div>
-        </div>
+
+    <div class="container">
+        <!-- 表單的 action 屬性已移除後端連結 -->
+        <form class="form-signin" method="POST" action="#">
+            <h2 class="form-signin-heading">證書產生器登入</h2>
+            <label for="id_card" class="sr-only">身分證號</label>
+            <input type="text" id="id_card" name="id_card" class="form-control" placeholder="身分證號" required autofocus>
+            <label for="phone" class="sr-only">手機號碼</label>
+            <input type="password" id="phone" name="phone" class="form-control" placeholder="手機號碼" required>
+            <button class="btn btn-lg btn-primary btn-block" type="submit">登入</button>
+
+            <!-- 後端提示訊息區塊已移除 -->
+
+        </form>
     </div>
+
+    <!-- jQuery 和 Bootstrap JS 仍然保留，以支援 Bootstrap 的功能 -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 </body>
 
 </html>
