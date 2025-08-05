@@ -1,7 +1,10 @@
 Flask
-pandas
-openpyxl
 requests
 beautifulsoup4
+pandas
 reportlab
+openpyxl
+gspread
+google-auth-oauthlib
+google-api-python-client
 gunicorn
