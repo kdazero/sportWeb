@@ -232,7 +232,16 @@ def update_user_log(user_id_card, successful_url):
             
             time_col_index = headers.index('last_time') + 1 if 'last_time' in headers else len(headers) + 1
             if 'last_time' not in headers: worksheet.update_cell(1, time_col_index, 'last_time'); headers.append('last_time')
-            worksheet.update_cell(match_row, time_col_index, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            
+            # --- 時區修正 ---
+            # 1. 定義 UTC+8 時區 (台灣時間)
+            utc8 = timezone(timedelta(hours=8))
+            # 2. 獲取當前的 UTC+8 時間
+            now_utc8 = datetime.now(utc8)
+            # 3. 格式化為字串
+            timestamp = now_utc8.strftime('%Y-%m-%d %H:%M:%S')
+            
+            worksheet.update_cell(match_row, time_col_index, timestamp)
 
             link_col_index = headers.index('last_link') + 1 if 'last_link' in headers else len(headers) + 1
             if 'last_link' not in headers: worksheet.update_cell(1, link_col_index, 'last_link')
