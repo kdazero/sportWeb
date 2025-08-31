@@ -304,7 +304,7 @@ def process_activity():
         buffer.seek(0)
         
         safe_activity_name = quote(activity.get('activity_name', 'activity').replace(" ", "_"))
-        filename = f"certificate_{user_name}_{safe_activity_name}.pdf"
+        filename = f"certificate.pdf"
 
         return Response(buffer, mimetype='application/pdf',
                         headers={'Content-Disposition': f'attachment;filename="{filename}"'})
