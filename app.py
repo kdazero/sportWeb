@@ -67,47 +67,50 @@ except Exception as e:
 gsheet_lock = threading.Lock()
 
 # ==============================================================================
-# 資料爬取與處理 (依照本地成功版本邏輯)
+# 資料爬取與處理 (依照本地成功版本邏輯，並標準化輸出)
 # ==============================================================================
-
 def get_strava_data(url):
-    """從 Strava 活動頁面抓取並解析資料。"""
+    """從 Strava 活動頁面抓取資料，並返回標準化格式的活動列表。"""
     try:
         response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        activity_name = soup.find('h1', class_='title').get_text(strip=True) if soup.find('h1', class_='title') else '未知活動'
+        activity_name_tag = soup.find('h1', class_='title')
+        activity_name = activity_name_tag.get_text(strip=True) if activity_name_tag else '未知活動'
         
-        # 尋找所有 'Stat--value' 的 span 標籤
-        stats = soup.find_all('span', class_='Stat--value_3qf-S')
-        labels = soup.find_all('span', class_='Stat--label_34-kF')
+        details_div = soup.find('div', class_='details-container')
+        if not details_div:
+            raise ValueError("在頁面中找不到活動詳細資料區塊。")
 
         distance_str = "0"
         time_str = "0h0m0s"
-
-        for i, label in enumerate(labels):
-            if 'Distance' in label.get_text(strip=True):
-                distance_str = stats[i].get_text(strip=True)
-            elif 'Moving Time' in label.get_text(strip=True):
-                time_str = stats[i].get_text(strip=True)
+        
+        # 尋找包含 Distance 和 Moving Time 的區塊
+        for item in details_div.find_all('div', class_='detail'):
+            label = item.find('div', class_='label').get_text(strip=True)
+            value = item.find('div', class_='value').get_text(strip=True)
+            if 'Distance' in label:
+                distance_str = value
+            elif 'Moving Time' in label:
+                time_str = value
 
         # 處理距離
-        if 'km' in distance_str:
-            distance_km = float(distance_str.replace('km', '').strip())
-        elif 'm' in distance_str:
-            distance_km = float(distance_str.replace('m', '').strip()) / 1000
-        else:
-            distance_km = 0.0
+        distance_km = 0.0
+        cleaned_distance_str = distance_str.replace(',', '')
+        if 'km' in cleaned_distance_str:
+            distance_km = float(re.findall(r"[\d\.]+", cleaned_distance_str)[0])
+        elif 'm' in cleaned_distance_str:
+            distance_km = float(re.findall(r"[\d\.]+", cleaned_distance_str)[0]) / 1000
 
         # 處理時間
         time_seconds = 0
         if 'h' in time_str:
             time_seconds += int(time_str.split('h')[0]) * 3600
-            time_str = time_str.split('h')[1]
+            time_str = time_str.split('h')[1] if 'h' in time_str else ''
         if 'm' in time_str:
             time_seconds += int(time_str.split('m')[0]) * 60
-            time_str = time_str.split('m')[1]
+            time_str = time_str.split('m')[1] if 'm' in time_str else ''
         if 's' in time_str:
             time_seconds += int(time_str.split('s')[0])
             
@@ -123,7 +126,7 @@ def get_strava_data(url):
         return None
 
 def get_garmin_data(url):
-    """從 Garmin Connect 頁面抓取並解析資料。"""
+    """從 Garmin Connect 頁面抓取資料，並返回標準化格式的活動列表。"""
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -141,7 +144,6 @@ def get_garmin_data(url):
         data = json.loads(json_data_match.group(1))
         activities_raw = data.get('activities', [])
         
-        # 將資料轉換為標準化格式
         activities_standardized = []
         for act in activities_raw:
             activities_standardized.append({
@@ -159,7 +161,6 @@ def get_garmin_data(url):
 # 輔助函式
 # ==============================================================================
 def get_user_data():
-    """從 Google Sheets 讀取使用者資料並轉換為 DataFrame。"""
     if not GSPREAD_AVAILABLE: return None
     try:
         with gsheet_lock: records = worksheet.get_all_records()
@@ -169,7 +170,6 @@ def get_user_data():
         return None
 
 def seconds_to_hms(seconds):
-    """將秒數轉換為 時:分:秒 的格式。"""
     if seconds is None: return "N/A"
     seconds = int(seconds)
     hours, remainder = divmod(seconds, 3600)
@@ -177,7 +177,6 @@ def seconds_to_hms(seconds):
     return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 def update_user_log(user_id_card, successful_url):
-    """在 Google Sheet 中更新使用者的最後產生時間與網址。"""
     if not GSPREAD_AVAILABLE: return
     with gsheet_lock:
         try:
@@ -191,12 +190,10 @@ def update_user_log(user_id_card, successful_url):
 
             headers = worksheet.row_values(1)
             
-            # 更新 last_time
             time_col_index = headers.index('last_time') + 1 if 'last_time' in headers else len(headers) + 1
             if 'last_time' not in headers: worksheet.update_cell(1, time_col_index, 'last_time'); headers.append('last_time')
             worksheet.update_cell(match_row, time_col_index, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-            # 更新 last_link
             link_col_index = headers.index('last_link') + 1 if 'last_link' in headers else len(headers) + 1
             if 'last_link' not in headers: worksheet.update_cell(1, link_col_index, 'last_link')
             worksheet.update_cell(match_row, link_col_index, str(successful_url) if successful_url else "")
@@ -230,10 +227,8 @@ def index():
             flash('請輸入活動網址。', 'warning')
         
         if activities is not None:
-            # 為所有活動添加 hms 時間格式
             for act in activities:
                 act['time_hms'] = seconds_to_hms(act.get('time_seconds', 0))
-            
             session['activities_data'] = activities
             session['last_successful_url'] = url
             flash('成功抓取活動資料！', 'success')
@@ -247,8 +242,7 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if 'user_id_card' in session:
-        return redirect(url_for('index'))
+    if 'user_id_card' in session: return redirect(url_for('index'))
     if not GSPREAD_AVAILABLE:
         flash('後端資料庫服務異常，請聯繫管理員。', 'danger')
         return render_template('login.html')
@@ -262,8 +256,7 @@ def login():
             flash('無法讀取或資料庫無使用者資料。', 'danger')
             return render_template('login.html')
         
-        required_columns = ['id_card', 'phone']
-        if not all(col in users_df.columns for col in required_columns):
+        if not all(col in users_df.columns for col in ['id_card', 'phone']):
             flash('資料庫欄位設定錯誤，請聯繫管理員。', 'danger')
             return render_template('login.html')
 
@@ -295,10 +288,10 @@ def generate_pdf(activity_index):
 
     activities = session.get('activities_data', [])
     if not activities or activity_index >= len(activities):
-        return "找不到活動或索引無效", 404
+        flash('找不到活動資料或憑證已過期，請重新抓取。', 'danger')
+        return redirect(url_for('index'))
 
     activity = activities[activity_index]
-
     successful_url = session.get('last_successful_url')
     update_user_log(session.get('user_id_card'), successful_url)
 
