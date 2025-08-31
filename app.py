@@ -275,7 +275,7 @@ def process_activity():
     
     if activities:
         # 直接選取第一個活動來產生證書
-        activity = activities[0]
+        activity = activities
         
         # 更新後台紀錄
         update_user_log(session.get('user_id_card'), url)
