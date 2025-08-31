@@ -240,43 +240,112 @@ def calculate_pace(distance_km, total_seconds):
     pace_minutes = int(pace_seconds_per_km // 60)
     pace_seconds = int(pace_seconds_per_km % 60)
     return f"{pace_minutes}'{pace_seconds:02d}\" /km"
+
+def create_certificate_pdf(user_name, user_number, activity_data):
+    """使用 ReportLab 產生 PDF 證書"""
+    if not FONT_AVAILABLE:
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        p.setFont('Helvetica', 12)
+        p.drawCentredString(letter[0]/2, letter[1]/2, "無法產生證書，因為缺少中文字型檔案。")
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return buffer
+
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+
+    p.setFont('NotoSansTC', 36)
+    p.drawCentredString(width / 2, height - 2*cm, "活動完賽證明")
+    p.setFont('NotoSansTC', 16)
+    p.drawCentredString(width / 2, height - 3*cm, "Certificate of Completion")
+    p.setFont('NotoSansTC', 18)
+    p.drawCentredString(width / 2, height - 5*cm, "茲證明參賽者")
+    p.setFont('NotoSansTC', 30)
+    p.setFillColorRGB(0.8, 0.1, 0.1)
+    p.drawCentredString(width / 2, height - 6.5*cm, user_name)
+    p.setFillColorRGB(0, 0, 0)
+    p.setFont('NotoSansTC', 16)
+    p.drawCentredString(width / 2, height - 7.5*cm, f"(編號: {user_number})")
+    p.setFont('NotoSansTC', 18)
+    p.drawCentredString(width / 2, height - 8.5*cm, "已成功完成本次挑戰，成績如下：")
+
+    p.setFont('NotoSansTC', 14)
+    table_y_start = height - 11*cm
+    col1_x = 5*cm
+    col2_x = 8*cm
+    col3_x = 13*cm
+    col4_x = 16*cm
+    row_height = 1*cm
+
+    p.drawString(col1_x, table_y_start, "總距離")
+    p.drawString(col3_x, table_y_start, "總時長")
+    p.drawString(col1_x, table_y_start - row_height, "最高海拔")
+    p.drawString(col3_x, table_y_start - row_height, "平均配速")
+    
+    p.setFont('NotoSansTC', 16)
+    p.drawString(col2_x, table_y_start, activity_data.get('distance', 'N/A'))
+    p.drawString(col4_x, table_y_start, activity_data.get('time', 'N/A'))
+    p.drawString(col2_x, table_y_start - row_height, activity_data.get('elevation_gain', 'N/A'))
+    p.drawString(col4_x, table_y_start - row_height, activity_data.get('avg_pace', 'N/A'))
+
+    p.setFont('NotoSansTC', 10)
+    p.drawCentredString(width / 2, 3*cm, f"資料來源: {activity_data.get('source', 'N/A')}")
+    p.drawCentredString(width / 2, 2.5*cm, f"證書產生時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    p.showPage()
+    p.save()
+    
+    buffer.seek(0)
+    return buffer
 # ==============================================================================
 # 路由 (Routes)
 # ==============================================================================
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if 'user_id_card' not in session:
+@app.route('/generate', methods=['POST'])
+def generate_certificate():
+    if 'user_id' not in session:
         return redirect(url_for('login'))
 
-    if request.method == 'POST':
-        session.pop('activities_data', None)
-        url = request.form.get('activity_url')
-        url_type = request.form.get('url_type')
-        activities = None
+    source_type = request.form.get('source_type')
+    activity_url = request.form.get('activity_url')
 
-        if url:
-            if url_type == 'garmin':
-                activities = get_garmin_data(url)
-            elif url_type == 'strava':
-                activities = get_strava_data(url)
-            else:
-                flash('請選擇有效的平台。', 'warning')
-        else:
-            flash('請輸入活動網址。', 'warning')
-        
-        if activities is not None:
-            for act in activities:
-                act['time_hms'] = seconds_to_hms(act.get('time_seconds', 0))
-            session['activities_data'] = activities
-            session['last_successful_url'] = url
-            flash('成功抓取活動資料！', 'success')
-        elif url:
-            flash('抓取或解析資料失敗，請確認網址是否正確且頁面為公開。', 'danger')
-            
+    if not activity_url:
+        flash('請輸入活動網址。', 'danger')
         return redirect(url_for('index'))
 
-    activities = session.get('activities_data', [])
-    return render_template('index.html', activities=activities)
+    activity_data = None
+    if source_type == 'strava':
+        activity_data = get_strava_data(activity_url)
+    elif source_type == 'garmin':
+        activity_data = get_garmin_data(activity_url)
+    else:
+        flash('無效的平台類型。', 'danger')
+        return redirect(url_for('index'))
+
+    if activity_data and 'error' in activity_data:
+        flash(f"處理失敗: {activity_data['error']}", 'danger')
+        return redirect(url_for('index'))
+    
+    if activity_data:
+        user_name = session.get('user_name')
+        user_number = session.get('user_number')
+        
+        pdf_buffer = create_certificate_pdf(user_name, user_number, activity_data)
+        
+        # 建立檔名，並進行 URL 編碼以支援中文
+        filename = f"{user_name}_參加證明.pdf"
+        encoded_filename = quote(filename)
+        
+        return Response(pdf_buffer,
+                        mimetype='application/pdf',
+                        headers={
+                            'Content-Disposition': f"attachment; filename*=UTF-8''{encoded_filename}"
+                        })
+
+    flash('無法獲取活動資料，請檢查您的網址或網路連線。', 'danger')
+    return redirect(url_for('index'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -318,47 +387,6 @@ def login():
             return render_template('login.html')
 
     return render_template('login.html')
-
-@app.route('/generate_pdf/<int:activity_index>')
-def generate_pdf(activity_index):
-    if 'user_id_card' not in session:
-        return redirect(url_for('login'))
-
-    activities = session.get('activities_data', [])
-    if not activities or activity_index >= len(activities):
-        flash('找不到活動資料或憑證已過期，請重新抓取。', 'danger')
-        return redirect(url_for('index'))
-
-    activity = activities[activity_index]
-    successful_url = session.get('last_successful_url')
-    update_user_log(session.get('user_id_card'), successful_url)
-
-    buffer = BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-
-    p.setFont('NotoSansTC' if FONT_AVAILABLE else 'Helvetica', 36)
-    p.drawCentredString(width / 2.0, height - 100, "完賽證明")
-
-    p.setFont('NotoSansTC' if FONT_AVAILABLE else 'Helvetica', 18)
-    user_name = session.get('user_name', '')
-    user_number = session.get('user_number', '')
-
-    p.drawCentredString(width / 2.0, height - 200, f"恭喜 {user_name} (編號: {user_number})")
-    p.drawCentredString(width / 2.0, height - 250, "成功挑戰")
-    p.drawCentredString(width / 2.0, height - 300, f"{activity.get('name', 'N/A')}")
-    p.drawCentredString(width / 2.0, height - 350, f"距離：{activity.get('distance_km', 0)} 公里")
-    p.drawCentredString(width / 2.0, height - 400, f"成績：{activity.get('time_hms', 'N/A')}")
-
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    
-    safe_activity_name = quote(activity.get('name', 'activity').replace(" ", "_"))
-    filename = f"certificate_{user_name}_{safe_activity_name}.pdf"
-
-    return Response(buffer, mimetype='application/pdf',
-                    headers={'Content-Disposition': f'attachment;filename="{filename}"'})
 
 @app.route('/logout')
 def logout():
