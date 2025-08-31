@@ -6,7 +6,7 @@ import requests
 import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, session, Response, flash
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from urllib.parse import quote
 import threading
