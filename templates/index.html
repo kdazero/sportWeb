@@ -111,7 +111,7 @@
     <div class="content-wrapper">
         <div class="form-container">
             <h2>產生您的完賽證書</h2>
-            <form method="POST" action="/generate">
+            <form method="POST" action="{{ url_for('process_activity') }}">
                 <div class="form-group">
                     <label for="url_type">選擇平台</label>
                     <select name="url_type" id="url_type" class="form-control">
